@@ -1,0 +1,22 @@
+# Java / Maven
+/target/
+/.mvn/
+
+# IDEs
+/.idea/
+*.iml
+
+# OS files
+.DS_Store
+
+# Environment files
+.env
+*.env
+src/main/resources/application.properties
+
+# Logs
+*.log
+
+# Others
+node_modules/
+

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Register - Daily Diary')}"></head>
+<body>
+<div class="auth-container">
+    <div class="auth-card paper">
+        <div class="auth-header">
+            <h1>Create Account</h1>
+            <p>Start your diary journey</p>
+        </div>
+
+        <div th:replace="~{fragments/alerts :: alerts}"></div>
+
+        <form th:action="@{/register}" th:object="${user}" method="post">
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" id="username" th:field="*{username}"
+                       class="form-control" th:classappend="${#fields.hasErrors('username')} ? 'is-invalid' : ''"
+                       placeholder="Choose a username (min. 3 characters)"
+                       required autofocus minlength="3" maxlength="50" autocomplete="username">
+                <div th:replace="~{fragments/alerts :: form-errors('username')}"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" th:field="*{password}"
+                       class="form-control" th:classappend="${#fields.hasErrors('password')} ? 'is-invalid' : ''"
+                       placeholder="Create a password (min. 6 characters)"
+                       required minlength="6" autocomplete="new-password">
+                <div th:replace="~{fragments/alerts :: form-errors('password')}"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword" class="form-label">Confirm Password</label>
+                <input type="password" id="confirmPassword" name="confirmPassword"
+                       class="form-control"
+                       placeholder="Re-enter your password" required autocomplete="new-password">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Create Account</button>
+        </form>
+
+        <div class="text-center mt-4">
+            <p class="text-muted">
+                Already have an account?
+                <a th:href="@{/login}">Sign in</a>
+            </p>
+            <p class="text-muted">
+                Need to reset your password?
+                <a th:href="@{/reset-password}">Do it here</a>
+            </p>
+        </div>
+    </div>
+</div>
+</body>
+</html>
