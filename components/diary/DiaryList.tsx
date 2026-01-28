@@ -88,7 +88,7 @@ export function DiaryList({
         </div>
         {initialSearch && (
           <p className="mt-3 text-sm text-ink-500">
-            Showing results for "{initialSearch}" ({total} {total === 1 ? 'entry' : 'entries'} found)
+            Showing results for &quot;{initialSearch}&quot; ({total} {total === 1 ? 'entry' : 'entries'} found)
           </p>
         )}
       </form>
