@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
@@ -50,13 +51,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </p>
       </div>
 
-      <DiaryList
-        initialDiaries={diaries}
-        initialSearch={search}
-        initialPage={page}
-        totalPages={totalPages}
-        total={total}
-      />
+      <Suspense fallback={<div className="text-center py-8 text-ink-500">Loading...</div>}>
+        <DiaryList
+          initialDiaries={diaries}
+          initialSearch={search}
+          initialPage={page}
+          totalPages={totalPages}
+          total={total}
+        />
+      </Suspense>
     </div>
   )
 }
