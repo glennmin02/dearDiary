@@ -15,24 +15,25 @@ struct DiaryDetailView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Glass background
-                GlassBackground(theme: theme)
+                theme.background
+                    .ignoresSafeArea()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         // Date badge
                         Text(diary.entryDate.formatted(date: .complete, time: .omitted))
                             .font(.subheadline)
-                            .fontWeight(.semibold)
+                            .fontWeight(.medium)
                             .foregroundColor(theme.accent)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(theme.accent.opacity(0.15).gradient)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(theme.accentLight)
                             .clipShape(Capsule())
 
                         // Title
                         Text(diary.title)
-                            .font(.playfairBold(size: 32))
+                            .font(.playfairBold(size: 28, relativeTo: .title))
+                            .foregroundColor(theme.textPrimary)
 
                         // Metadata
                         HStack(spacing: 16) {
@@ -41,7 +42,7 @@ struct DiaryDetailView: View {
                                 systemImage: "clock"
                             )
                             .font(.caption)
-                            .foregroundStyle(.tertiary)
+                            .foregroundColor(theme.textTertiary)
 
                             if diary.updatedAt != diary.createdAt {
                                 Label(
@@ -49,21 +50,27 @@ struct DiaryDetailView: View {
                                     systemImage: "pencil"
                                 )
                                 .font(.caption)
-                                .foregroundStyle(.tertiary)
+                                .foregroundColor(theme.textTertiary)
                             }
                         }
 
                         Divider()
-                            .background(.white.opacity(0.2))
+                            .background(theme.divider)
 
                         // Content
                         Text(diary.content)
                             .font(.body)
+                            .foregroundColor(theme.textPrimary)
                             .lineSpacing(8)
                     }
-                    .padding(28)
+                    .padding(24)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .glassCard(theme: theme)
+                    .background(theme.cardBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(theme.border, lineWidth: 1)
+                    )
                     .padding()
                 }
             }
@@ -71,8 +78,8 @@ struct DiaryDetailView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
-            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
-            .toolbarColorScheme(theme.name == "Diary" ? .light : .dark, for: .navigationBar)
+            .toolbarBackground(theme.cardBackground, for: .navigationBar)
+            .toolbarColorScheme(theme.isDark ? .dark : .light, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") {

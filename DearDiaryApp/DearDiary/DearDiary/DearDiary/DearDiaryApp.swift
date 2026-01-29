@@ -10,6 +10,7 @@ struct DearDiaryApp: App {
             ContentView()
                 .environmentObject(authViewModel)
                 .environmentObject(themeManager)
+                .adaptiveTheme() // Automatically follows system light/dark mode
         }
         #if os(macOS)
         .windowStyle(.hiddenTitleBar)

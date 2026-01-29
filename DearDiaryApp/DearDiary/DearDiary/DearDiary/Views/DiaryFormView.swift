@@ -19,8 +19,8 @@ struct DiaryFormView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Glass background
-                GlassBackground(theme: theme)
+                theme.background
+                    .ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: 24) {
@@ -29,21 +29,19 @@ struct DiaryFormView: View {
                             Label("Date", systemImage: "calendar")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(.secondary)
+                                .foregroundColor(theme.textSecondary)
 
-                            DatePicker("", selection: $entryDate, displayedComponents: .date)
+                            DatePicker("Entry date", selection: $entryDate, displayedComponents: .date)
                                 .datePickerStyle(.compact)
                                 .labelsHidden()
-                                .padding()
+                                .padding(14)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background {
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .fill(.ultraThinMaterial)
-                                }
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 14)
-                                        .stroke(.white.opacity(0.2), lineWidth: 1)
-                                }
+                                .background(theme.cardBackground)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(theme.border, lineWidth: 1)
+                                )
                         }
 
                         // Title
@@ -52,14 +50,14 @@ struct DiaryFormView: View {
                                 Label("Title", systemImage: "text.quote")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundColor(theme.textSecondary)
                                 Spacer()
                                 Text("\(title.count)/200")
                                     .font(.caption)
-                                    .foregroundColor(title.count > 200 ? theme.error : .secondary)
+                                    .foregroundColor(title.count > 200 ? theme.error : theme.textTertiary)
                             }
 
-                            GlassTextField(
+                            DiaryTextField(
                                 placeholder: "Give your entry a title...",
                                 text: $title,
                                 theme: theme
@@ -75,14 +73,14 @@ struct DiaryFormView: View {
                                 Label("Content", systemImage: "doc.text")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundColor(theme.textSecondary)
                                 Spacer()
                                 Text("\(content.count)/10,000 chars | \(wordCount) words")
                                     .font(.caption)
-                                    .foregroundColor(content.count > 10000 ? theme.error : .secondary)
+                                    .foregroundColor(content.count > 10000 ? theme.error : theme.textTertiary)
                             }
 
-                            GlassTextEditor(
+                            DiaryTextEditor(
                                 text: $content,
                                 theme: theme
                             )
@@ -90,13 +88,16 @@ struct DiaryFormView: View {
 
                         // Error message
                         if let error = errorMessage {
-                            Text(error)
-                                .font(.caption)
-                                .foregroundColor(.white)
-                                .padding()
-                                .frame(maxWidth: .infinity)
-                                .background(theme.error.opacity(0.9).gradient)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                            HStack {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                Text(error)
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(.white)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(theme.error)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                     }
                     .padding(24)
@@ -106,14 +107,14 @@ struct DiaryFormView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
-            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
-            .toolbarColorScheme(theme.name == "Diary" ? .light : .dark, for: .navigationBar)
+            .toolbarBackground(theme.cardBackground, for: .navigationBar)
+            .toolbarColorScheme(theme.isDark ? .dark : .light, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(theme.textSecondary)
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
@@ -177,8 +178,8 @@ struct DiaryFormView: View {
     }
 }
 
-// MARK: - Glass Text Editor
-struct GlassTextEditor: View {
+// MARK: - Text Editor
+struct DiaryTextEditor: View {
     @Binding var text: String
     let theme: DiaryTheme
     @FocusState private var isFocused: Bool
@@ -186,21 +187,29 @@ struct GlassTextEditor: View {
     var body: some View {
         TextEditor(text: $text)
             .scrollContentBackground(.hidden)
-            .padding()
+            .foregroundColor(theme.textPrimary)
+            .padding(14)
             .frame(minHeight: 280)
-            .background {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        isFocused ? theme.accent.opacity(0.5) : .white.opacity(0.2),
-                        lineWidth: isFocused ? 2 : 1
-                    )
-            }
+            .background(theme.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isFocused ? theme.accent : theme.border, lineWidth: isFocused ? 2 : 1)
+            )
             .focused($isFocused)
-            .animation(.easeInOut(duration: 0.2), value: isFocused)
+    }
+}
+
+// MARK: - Legacy Support
+struct GlassTextEditor: View {
+    @Binding var text: String
+    let theme: DiaryTheme
+    var accessibilityLabel: String = "Content"
+    var accessibilityHint: String = ""
+
+    var body: some View {
+        DiaryTextEditor(text: $text, theme: theme)
+            .accessibilityLabel(accessibilityLabel)
     }
 }
 

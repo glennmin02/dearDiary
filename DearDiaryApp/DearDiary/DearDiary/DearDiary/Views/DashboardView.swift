@@ -12,12 +12,13 @@ struct DashboardView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Glass background
-                GlassBackground(theme: theme)
+                // Solid background
+                theme.background
+                    .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // Glass search bar
-                    GlassSearchBar(
+                    // Search bar
+                    SearchBar(
                         searchText: $diaryViewModel.searchText,
                         theme: theme,
                         onSubmit: {
@@ -38,7 +39,7 @@ struct DashboardView: View {
                         Spacer()
                     } else if diaryViewModel.diaries.isEmpty {
                         Spacer()
-                        GlassEmptyStateView(
+                        EmptyStateView(
                             searchText: diaryViewModel.searchText,
                             theme: theme
                         ) {
@@ -52,18 +53,18 @@ struct DashboardView: View {
                                  ? "You have \(diaryViewModel.totalEntries) \(diaryViewModel.totalEntries == 1 ? "entry" : "entries")"
                                  : "Found \(diaryViewModel.totalEntries) \(diaryViewModel.totalEntries == 1 ? "entry" : "entries")")
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundColor(theme.textSecondary)
                             Spacer()
                         }
                         .padding(.horizontal)
 
-                        // Diary list with glass cards
+                        // Diary list
                         ScrollView {
                             LazyVGrid(columns: [
-                                GridItem(.adaptive(minimum: 300), spacing: 20)
-                            ], spacing: 20) {
+                                GridItem(.adaptive(minimum: 300), spacing: 16)
+                            ], spacing: 16) {
                                 ForEach(diaryViewModel.diaries) { diary in
-                                    GlassDiaryCard(diary: diary, theme: theme)
+                                    DiaryCard(diary: diary, theme: theme)
                                         .onTapGesture {
                                             selectedDiary = diary
                                         }
@@ -72,9 +73,9 @@ struct DashboardView: View {
                             .padding()
                         }
 
-                        // Glass pagination
+                        // Pagination
                         if diaryViewModel.totalPages > 1 {
-                            GlassPagination(
+                            PaginationView(
                                 currentPage: diaryViewModel.currentPage,
                                 totalPages: diaryViewModel.totalPages,
                                 theme: theme,
@@ -94,8 +95,8 @@ struct DashboardView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
             #endif
-            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
-            .toolbarColorScheme(theme.name == "Diary" ? .light : .dark, for: .navigationBar)
+            .toolbarBackground(theme.cardBackground, for: .navigationBar)
+            .toolbarColorScheme(theme.isDark ? .dark : .light, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: { showingNewEntry = true }) {
@@ -104,29 +105,19 @@ struct DashboardView: View {
                             .fontWeight(.medium)
                     }
                     .tint(theme.accent)
+                    .accessibilityLabel("New entry")
                 }
 
                 #if os(iOS)
                 ToolbarItem(placement: .navigationBarLeading) {
                     Menu {
-                        // Theme submenu
-                        Menu {
-                            ForEach(DiaryTheme.all, id: \.name) { t in
-                                Button(action: {
-                                    withAnimation(.spring(response: 0.4)) {
-                                        themeManager.setTheme(t)
-                                    }
-                                }) {
-                                    HStack {
-                                        Text(t.name)
-                                        if themeManager.currentTheme.name == t.name {
-                                            Image(systemName: "checkmark")
-                                        }
-                                    }
-                                }
-                            }
-                        } label: {
-                            Label("Theme", systemImage: "paintpalette")
+                        Button(action: {
+                            themeManager.toggleTheme()
+                        }) {
+                            Label(
+                                theme.isDark ? "Light Mode" : "Dark Mode",
+                                systemImage: theme.isDark ? "sun.max.fill" : "moon.fill"
+                            )
                         }
 
                         Divider()
@@ -162,8 +153,8 @@ struct DashboardView: View {
     }
 }
 
-// MARK: - Glass Search Bar
-struct GlassSearchBar: View {
+// MARK: - Search Bar
+struct SearchBar: View {
     @Binding var searchText: String
     let theme: DiaryTheme
     let onSubmit: () -> Void
@@ -173,11 +164,12 @@ struct GlassSearchBar: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-                .font(.title3)
+                .foregroundColor(theme.textTertiary)
+                .font(.body)
 
             TextField("Search your entries...", text: $searchText)
                 .textFieldStyle(.plain)
+                .foregroundColor(theme.textPrimary)
                 #if os(iOS)
                 .textInputAutocapitalization(.never)
                 #endif
@@ -187,30 +179,23 @@ struct GlassSearchBar: View {
             if !searchText.isEmpty {
                 Button(action: onClear) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
+                        .foregroundColor(theme.textTertiary)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(
-                    isFocused ? theme.accent.opacity(0.5) : .white.opacity(0.2),
-                    lineWidth: isFocused ? 2 : 1
-                )
-        }
-        .animation(.easeInOut(duration: 0.2), value: isFocused)
+        .padding(14)
+        .background(theme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isFocused ? theme.accent : theme.border, lineWidth: isFocused ? 2 : 1)
+        )
     }
 }
 
-// MARK: - Glass Empty State
-struct GlassEmptyStateView: View {
+// MARK: - Empty State
+struct EmptyStateView: View {
     let searchText: String
     let theme: DiaryTheme
     let onCreateNew: () -> Void
@@ -218,19 +203,19 @@ struct GlassEmptyStateView: View {
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "book.closed.fill")
-                .font(.system(size: 56))
-                .foregroundStyle(theme.accent.gradient)
-                .shadow(color: theme.accent.opacity(0.3), radius: 10, y: 5)
+                .font(.system(size: 48))
+                .foregroundColor(theme.accent)
 
             Text(searchText.isEmpty ? "No entries yet" : "No entries found")
                 .font(.title2)
                 .fontWeight(.semibold)
+                .foregroundColor(theme.textPrimary)
 
             Text(searchText.isEmpty
                  ? "Start writing your first diary entry"
                  : "Try a different search term")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundColor(theme.textSecondary)
                 .multilineTextAlignment(.center)
 
             if searchText.isEmpty {
@@ -243,77 +228,69 @@ struct GlassEmptyStateView: View {
                     .padding(.horizontal, 24)
                     .padding(.vertical, 14)
                 }
-                .background(theme.accent.gradient)
+                .background(theme.accent)
                 .foregroundColor(.white)
                 .clipShape(Capsule())
-                .shadow(color: theme.accent.opacity(0.4), radius: 12, y: 6)
             }
         }
         .padding(40)
-        .glassCard(theme: theme)
+        .background(theme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(theme.border, lineWidth: 1)
+        )
         .padding(.horizontal, 20)
     }
 }
 
-// MARK: - Glass Diary Card
-struct GlassDiaryCard: View {
+// MARK: - Diary Card
+struct DiaryCard: View {
     let diary: Diary
     let theme: DiaryTheme
-    @State private var isPressed = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             // Date badge
             Text(diary.entryDate.formatted(date: .long, time: .omitted))
                 .font(.caption)
-                .fontWeight(.semibold)
+                .fontWeight(.medium)
                 .foregroundColor(theme.accent)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(theme.accent.opacity(0.15).gradient)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(theme.accentLight)
                 .clipShape(Capsule())
 
             // Title
             Text(diary.title)
                 .font(.headline)
+                .foregroundColor(theme.textPrimary)
                 .lineLimit(2)
 
             // Content preview
             Text(diary.content)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundColor(theme.textSecondary)
                 .lineLimit(3)
 
             Spacer(minLength: 0)
         }
         .padding(20)
-        .frame(maxWidth: .infinity, minHeight: 180, alignment: .topLeading)
-        .background {
-            RoundedRectangle(cornerRadius: 20)
-                .fill(.ultraThinMaterial)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(
-                    LinearGradient(
-                        colors: [.white.opacity(0.4), .white.opacity(0.1), .clear],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        }
-        .shadow(color: theme.textPrimary.opacity(0.08), radius: 16, y: 8)
-        .scaleEffect(isPressed ? 0.97 : 1)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
-        .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
-            isPressed = pressing
-        }, perform: {})
+        .frame(maxWidth: .infinity, minHeight: 160, alignment: .topLeading)
+        .background(theme.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(theme.border, lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Diary entry: \(diary.title)")
+        .accessibilityHint("Double tap to view")
     }
 }
 
-// MARK: - Glass Pagination
-struct GlassPagination: View {
+// MARK: - Pagination
+struct PaginationView: View {
     let currentPage: Int
     let totalPages: Int
     let theme: DiaryTheme
@@ -321,7 +298,7 @@ struct GlassPagination: View {
     let onNext: () -> Void
 
     var body: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 16) {
             Button(action: onPrevious) {
                 Image(systemName: "chevron.left")
                     .fontWeight(.semibold)
@@ -329,11 +306,12 @@ struct GlassPagination: View {
             }
             .disabled(currentPage <= 1)
             .opacity(currentPage <= 1 ? 0.4 : 1)
+            .foregroundColor(theme.textPrimary)
 
             Text("Page \(currentPage) of \(totalPages)")
                 .font(.subheadline)
                 .fontWeight(.medium)
-                .foregroundStyle(.secondary)
+                .foregroundColor(theme.textSecondary)
 
             Button(action: onNext) {
                 Image(systemName: "chevron.right")
@@ -342,17 +320,59 @@ struct GlassPagination: View {
             }
             .disabled(currentPage >= totalPages)
             .opacity(currentPage >= totalPages ? 0.4 : 1)
+            .foregroundColor(theme.textPrimary)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        .background {
+        .background(theme.cardBackground)
+        .clipShape(Capsule())
+        .overlay(
             Capsule()
-                .fill(.ultraThinMaterial)
-        }
-        .overlay {
-            Capsule()
-                .stroke(.white.opacity(0.2), lineWidth: 1)
-        }
+                .stroke(theme.border, lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Legacy Support
+struct GlassSearchBar: View {
+    @Binding var searchText: String
+    let theme: DiaryTheme
+    let onSubmit: () -> Void
+    let onClear: () -> Void
+
+    var body: some View {
+        SearchBar(searchText: $searchText, theme: theme, onSubmit: onSubmit, onClear: onClear)
+    }
+}
+
+struct GlassEmptyStateView: View {
+    let searchText: String
+    let theme: DiaryTheme
+    let onCreateNew: () -> Void
+
+    var body: some View {
+        EmptyStateView(searchText: searchText, theme: theme, onCreateNew: onCreateNew)
+    }
+}
+
+struct GlassDiaryCard: View {
+    let diary: Diary
+    let theme: DiaryTheme
+
+    var body: some View {
+        DiaryCard(diary: diary, theme: theme)
+    }
+}
+
+struct GlassPagination: View {
+    let currentPage: Int
+    let totalPages: Int
+    let theme: DiaryTheme
+    let onPrevious: () -> Void
+    let onNext: () -> Void
+
+    var body: some View {
+        PaginationView(currentPage: currentPage, totalPages: totalPages, theme: theme, onPrevious: onPrevious, onNext: onNext)
     }
 }
 
