@@ -34,7 +34,8 @@ final class DiaryViewModel: ObservableObject {
     func fetchDiaries(page: Int = 1) async {
         await performOperation {
             let response = try await apiService.fetchDiaries(page: page, search: searchText)
-            diaries = response.diaries
+            // Sort by entry date descending (latest first)
+            diaries = response.diaries.sorted { $0.entryDate > $1.entryDate }
             currentPage = response.pagination.page
             totalPages = response.pagination.totalPages
             totalEntries = response.pagination.total
@@ -122,7 +123,8 @@ final class DiaryViewModel: ObservableObject {
             if refreshAfter {
                 // Refresh the list but don't set isLoading again
                 let response = try await apiService.fetchDiaries(page: currentPage, search: searchText)
-                diaries = response.diaries
+                // Sort by entry date descending (latest first)
+                diaries = response.diaries.sorted { $0.entryDate > $1.entryDate }
                 currentPage = response.pagination.page
                 totalPages = response.pagination.totalPages
                 totalEntries = response.pagination.total

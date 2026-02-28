@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 struct DashboardView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
@@ -6,6 +9,9 @@ struct DashboardView: View {
     @StateObject private var diaryViewModel = DiaryViewModel()
     @State private var showingNewEntry = false
     @State private var selectedDiary: Diary?
+    @State private var diaryToExport: Diary?
+    @State private var showingExportSheet = false
+    @State private var exportPDFData: Data?
 
     private var theme: DiaryTheme { themeManager.currentTheme }
 
@@ -64,10 +70,16 @@ struct DashboardView: View {
                                 GridItem(.adaptive(minimum: 300), spacing: 16)
                             ], spacing: 16) {
                                 ForEach(diaryViewModel.diaries) { diary in
-                                    DiaryCard(diary: diary, theme: theme)
-                                        .onTapGesture {
-                                            selectedDiary = diary
-                                        }
+                                    DiaryCard(diary: diary, theme: theme, onExport: {
+                                        diaryToExport = diary
+                                        #if os(iOS)
+                                        exportPDFData = generatePDF(for: diary)
+                                        showingExportSheet = true
+                                        #endif
+                                    })
+                                    .onTapGesture {
+                                        selectedDiary = diary
+                                    }
                                 }
                             }
                             .padding()
@@ -143,6 +155,13 @@ struct DashboardView: View {
                 DiaryDetailView(diary: diary, diaryViewModel: diaryViewModel)
                     .environmentObject(themeManager)
             }
+            #if os(iOS)
+            .sheet(isPresented: $showingExportSheet) {
+                if let pdfData = exportPDFData, let diary = diaryToExport {
+                    DashboardShareSheet(activityItems: [pdfData], filename: pdfFilename(for: diary))
+                }
+            }
+            #endif
             .task {
                 await diaryViewModel.fetchDiaries()
             }
@@ -151,6 +170,234 @@ struct DashboardView: View {
             }
         }
     }
+
+    #if os(iOS)
+    private func pdfFilename(for diary: Diary) -> String {
+        let sanitizedTitle = diary.title
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+            .prefix(50)
+        let dateString = diary.entryDate.formatted(.dateTime.year().month().day())
+        return "\(sanitizedTitle) - \(dateString).pdf"
+    }
+
+    private func generatePDF(for diary: Diary) -> Data {
+        // A4 dimensions in points (72 DPI)
+        let pageWidth: CGFloat = 595.276
+        let pageHeight: CGFloat = 841.890
+
+        // Narrow margins (0.5 inch = 36 points)
+        let margin: CGFloat = 36
+        let contentWidth = pageWidth - (margin * 2)
+        let footerHeight: CGFloat = 24
+
+        let pageRect = CGRect(x: 0, y: 0, width: pageWidth, height: pageHeight)
+        let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
+
+        // Calculate total pages first
+        let totalPages = calculateTotalPages(for: diary, pageWidth: pageWidth, pageHeight: pageHeight, margin: margin, contentWidth: contentWidth, footerHeight: footerHeight)
+
+        let data = renderer.pdfData { context in
+            // Fonts
+            let titleFont = UIFont(name: "PlayfairDisplay-Bold", size: 24) ?? UIFont.boldSystemFont(ofSize: 24)
+            let dateFont = UIFont.systemFont(ofSize: 12, weight: .medium)
+            let metadataFont = UIFont.systemFont(ofSize: 10)
+            let contentFont = UIFont.systemFont(ofSize: 12)
+            let pageNumberFont = UIFont.systemFont(ofSize: 10)
+
+            // Colors
+            let textColor = UIColor(red: 0.067, green: 0.094, blue: 0.153, alpha: 1)
+            let accentColor = UIColor(red: 0.490, green: 0.388, blue: 0.251, alpha: 1)
+            let metadataColor = UIColor(red: 0.420, green: 0.447, blue: 0.502, alpha: 1)
+
+            // Paragraph styles
+            let titleParagraphStyle = NSMutableParagraphStyle()
+            titleParagraphStyle.lineSpacing = 4
+
+            let contentParagraphStyle = NSMutableParagraphStyle()
+            contentParagraphStyle.lineSpacing = 6
+
+            // Attributes
+            let titleAttributes: [NSAttributedString.Key: Any] = [
+                .font: titleFont,
+                .foregroundColor: textColor,
+                .paragraphStyle: titleParagraphStyle
+            ]
+
+            let dateAttributes: [NSAttributedString.Key: Any] = [
+                .font: dateFont,
+                .foregroundColor: accentColor
+            ]
+
+            let metadataAttributes: [NSAttributedString.Key: Any] = [
+                .font: metadataFont,
+                .foregroundColor: metadataColor
+            ]
+
+            let contentAttributes: [NSAttributedString.Key: Any] = [
+                .font: contentFont,
+                .foregroundColor: textColor,
+                .paragraphStyle: contentParagraphStyle
+            ]
+
+            let pageNumberAttributes: [NSAttributedString.Key: Any] = [
+                .font: pageNumberFont,
+                .foregroundColor: metadataColor
+            ]
+
+            // Format strings
+            let dateText = diary.entryDate.formatted(date: .complete, time: .omitted)
+            let titleText = diary.title
+            let createdText = "Created: \(diary.createdAt.formatted(date: .abbreviated, time: .shortened))"
+            let updatedText = diary.updatedAt != diary.createdAt
+                ? "  •  Updated: \(diary.updatedAt.formatted(date: .abbreviated, time: .shortened))"
+                : ""
+            let metadataText = createdText + updatedText
+
+            // Calculate sizes
+            let dateSize = dateText.boundingRect(with: CGSize(width: contentWidth, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin, attributes: dateAttributes, context: nil)
+            let titleSize = titleText.boundingRect(with: CGSize(width: contentWidth, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin, attributes: titleAttributes, context: nil)
+            let metadataSize = metadataText.boundingRect(with: CGSize(width: contentWidth, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin, attributes: metadataAttributes, context: nil)
+
+            let contentText = diary.content as NSString
+            var currentLocation = 0
+            let totalLength = contentText.length
+            var currentPageNumber = 0
+
+            func drawPageNumber(_ pageNum: Int) {
+                let pageNumberText = "Page \(pageNum) of \(totalPages)"
+                let pageNumberSize = pageNumberText.boundingRect(with: CGSize(width: contentWidth, height: footerHeight), options: .usesLineFragmentOrigin, attributes: pageNumberAttributes, context: nil)
+                let xPosition = (pageWidth - pageNumberSize.width) / 2
+                let yPosition = pageHeight - margin
+                pageNumberText.draw(at: CGPoint(x: xPosition, y: yPosition), withAttributes: pageNumberAttributes)
+            }
+
+            if totalLength == 0 {
+                context.beginPage()
+                currentPageNumber += 1
+                var yPosition = margin
+
+                dateText.draw(in: CGRect(x: margin, y: yPosition, width: contentWidth, height: dateSize.height), withAttributes: dateAttributes)
+                yPosition += dateSize.height + 12
+                titleText.draw(in: CGRect(x: margin, y: yPosition, width: contentWidth, height: titleSize.height), withAttributes: titleAttributes)
+                yPosition += titleSize.height + 8
+                metadataText.draw(in: CGRect(x: margin, y: yPosition, width: contentWidth, height: metadataSize.height), withAttributes: metadataAttributes)
+                yPosition += metadataSize.height + 16
+
+                let dividerPath = UIBezierPath()
+                dividerPath.move(to: CGPoint(x: margin, y: yPosition))
+                dividerPath.addLine(to: CGPoint(x: pageWidth - margin, y: yPosition))
+                UIColor(red: 0.910, green: 0.875, blue: 0.816, alpha: 1).setStroke()
+                dividerPath.lineWidth = 1
+                dividerPath.stroke()
+
+                drawPageNumber(currentPageNumber)
+            }
+
+            while currentLocation < totalLength {
+                context.beginPage()
+                currentPageNumber += 1
+                var yPosition = margin
+
+                if currentLocation == 0 {
+                    dateText.draw(in: CGRect(x: margin, y: yPosition, width: contentWidth, height: dateSize.height), withAttributes: dateAttributes)
+                    yPosition += dateSize.height + 12
+                    titleText.draw(in: CGRect(x: margin, y: yPosition, width: contentWidth, height: titleSize.height), withAttributes: titleAttributes)
+                    yPosition += titleSize.height + 8
+                    metadataText.draw(in: CGRect(x: margin, y: yPosition, width: contentWidth, height: metadataSize.height), withAttributes: metadataAttributes)
+                    yPosition += metadataSize.height + 16
+
+                    let dividerPath = UIBezierPath()
+                    dividerPath.move(to: CGPoint(x: margin, y: yPosition))
+                    dividerPath.addLine(to: CGPoint(x: pageWidth - margin, y: yPosition))
+                    UIColor(red: 0.910, green: 0.875, blue: 0.816, alpha: 1).setStroke()
+                    dividerPath.lineWidth = 1
+                    dividerPath.stroke()
+                    yPosition += 16
+                }
+
+                let availableHeight = pageHeight - yPosition - margin - footerHeight
+                let remainingText = contentText.substring(from: currentLocation)
+                let layoutManager = NSLayoutManager()
+                let textContainer = NSTextContainer(size: CGSize(width: contentWidth, height: availableHeight))
+                let textStorage = NSTextStorage(string: remainingText, attributes: contentAttributes)
+
+                layoutManager.addTextContainer(textContainer)
+                textStorage.addLayoutManager(layoutManager)
+
+                let glyphRange = layoutManager.glyphRange(for: textContainer)
+                let characterRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+
+                let textToDraw = (remainingText as NSString).substring(with: NSRange(location: 0, length: characterRange.length))
+                textToDraw.draw(in: CGRect(x: margin, y: yPosition, width: contentWidth, height: availableHeight), withAttributes: contentAttributes)
+
+                currentLocation += characterRange.length
+                drawPageNumber(currentPageNumber)
+
+                if characterRange.length == 0 { break }
+            }
+        }
+
+        return data
+    }
+
+    private func calculateTotalPages(for diary: Diary, pageWidth: CGFloat, pageHeight: CGFloat, margin: CGFloat, contentWidth: CGFloat, footerHeight: CGFloat) -> Int {
+        let contentFont = UIFont.systemFont(ofSize: 12)
+        let titleFont = UIFont(name: "PlayfairDisplay-Bold", size: 24) ?? UIFont.boldSystemFont(ofSize: 24)
+        let dateFont = UIFont.systemFont(ofSize: 12, weight: .medium)
+        let metadataFont = UIFont.systemFont(ofSize: 10)
+
+        let contentParagraphStyle = NSMutableParagraphStyle()
+        contentParagraphStyle.lineSpacing = 6
+
+        let contentAttributes: [NSAttributedString.Key: Any] = [.font: contentFont, .paragraphStyle: contentParagraphStyle]
+        let titleAttributes: [NSAttributedString.Key: Any] = [.font: titleFont]
+        let dateAttributes: [NSAttributedString.Key: Any] = [.font: dateFont]
+        let metadataAttributes: [NSAttributedString.Key: Any] = [.font: metadataFont]
+
+        let dateText = diary.entryDate.formatted(date: .complete, time: .omitted)
+        let titleText = diary.title
+        let createdText = "Created: \(diary.createdAt.formatted(date: .abbreviated, time: .shortened))"
+        let updatedText = diary.updatedAt != diary.createdAt ? "  •  Updated: \(diary.updatedAt.formatted(date: .abbreviated, time: .shortened))" : ""
+        let metadataText = createdText + updatedText
+
+        let dateSize = dateText.boundingRect(with: CGSize(width: contentWidth, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin, attributes: dateAttributes, context: nil)
+        let titleSize = titleText.boundingRect(with: CGSize(width: contentWidth, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin, attributes: titleAttributes, context: nil)
+        let metadataSize = metadataText.boundingRect(with: CGSize(width: contentWidth, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin, attributes: metadataAttributes, context: nil)
+
+        let headerHeight = dateSize.height + 12 + titleSize.height + 8 + metadataSize.height + 16 + 16
+
+        let contentText = diary.content as NSString
+        let totalLength = contentText.length
+
+        if totalLength == 0 { return 1 }
+
+        var pageCount = 0
+        var currentLocation = 0
+
+        while currentLocation < totalLength {
+            pageCount += 1
+            let yPosition: CGFloat = currentLocation == 0 ? (margin + headerHeight) : margin
+            let availableHeight = pageHeight - yPosition - margin - footerHeight
+
+            let remainingText = contentText.substring(from: currentLocation)
+            let layoutManager = NSLayoutManager()
+            let textContainer = NSTextContainer(size: CGSize(width: contentWidth, height: availableHeight))
+            let textStorage = NSTextStorage(string: remainingText, attributes: contentAttributes)
+
+            layoutManager.addTextContainer(textContainer)
+            textStorage.addLayoutManager(layoutManager)
+
+            let glyphRange = layoutManager.glyphRange(for: textContainer)
+            let characterRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+
+            currentLocation += characterRange.length
+            if characterRange.length == 0 { break }
+        }
+
+        return max(1, pageCount)
+    }
+    #endif
 }
 
 // MARK: - Search Bar
@@ -248,18 +495,38 @@ struct EmptyStateView: View {
 struct DiaryCard: View {
     let diary: Diary
     let theme: DiaryTheme
+    var onExport: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Date badge
-            Text(diary.entryDate.formatted(date: .long, time: .omitted))
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(theme.accent)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(theme.accentLight)
-                .clipShape(Capsule())
+            // Header with date and export button
+            HStack {
+                // Date badge
+                Text(diary.entryDate.formatted(date: .long, time: .omitted))
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(theme.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(theme.accentLight)
+                    .clipShape(Capsule())
+
+                Spacer()
+
+                #if os(iOS)
+                if let onExport = onExport {
+                    Button(action: onExport) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.subheadline)
+                            .foregroundColor(theme.accent)
+                            .padding(8)
+                            .background(theme.accentLight)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                #endif
+            }
 
             // Title
             Text(diary.title)
@@ -358,9 +625,10 @@ struct GlassEmptyStateView: View {
 struct GlassDiaryCard: View {
     let diary: Diary
     let theme: DiaryTheme
+    var onExport: (() -> Void)?
 
     var body: some View {
-        DiaryCard(diary: diary, theme: theme)
+        DiaryCard(diary: diary, theme: theme, onExport: onExport)
     }
 }
 
@@ -375,6 +643,34 @@ struct GlassPagination: View {
         PaginationView(currentPage: currentPage, totalPages: totalPages, theme: theme, onPrevious: onPrevious, onNext: onNext)
     }
 }
+
+// MARK: - Share Sheet for Dashboard
+#if os(iOS)
+struct DashboardShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    let filename: String
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        if let pdfData = activityItems.first as? Data {
+            try? pdfData.write(to: tempURL)
+        }
+
+        let controller = UIActivityViewController(
+            activityItems: [tempURL],
+            applicationActivities: nil
+        )
+
+        controller.completionWithItemsHandler = { _, _, _, _ in
+            try? FileManager.default.removeItem(at: tempURL)
+        }
+
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+#endif
 
 #Preview {
     DashboardView()

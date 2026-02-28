@@ -3,7 +3,8 @@
     "allow": [
       "Bash(tree:*)",
       "Bash(xcodebuild:*)",
-      "WebFetch(domain:deardiary.vercel.app)"
+      "WebFetch(domain:deardiary.vercel.app)",
+      "Bash(git add:*)"
     ]
   }
 }

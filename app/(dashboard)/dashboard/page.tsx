@@ -2,18 +2,16 @@ import { Suspense } from 'react'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { DiaryList } from '@/components/diary/DiaryList'
+import { GroupedDiaryList } from '@/components/diary/GroupedDiaryList'
 
 interface DashboardPageProps {
-  searchParams: Promise<{ page?: string; search?: string }>
+  searchParams: Promise<{ search?: string }>
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const resolvedSearchParams = await searchParams
   const session = await getServerSession(authOptions)
-  const page = parseInt(resolvedSearchParams.page || '1')
   const search = resolvedSearchParams.search || ''
-  const limit = 12
 
   const where = {
     userId: session!.user.id,
@@ -29,13 +27,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     prisma.diary.findMany({
       where,
       orderBy: { entryDate: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
     }),
     prisma.diary.count({ where }),
   ])
-
-  const totalPages = Math.ceil(total / limit)
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
@@ -52,11 +46,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </div>
 
       <Suspense fallback={<div className="text-center py-8 text-ink-500">Loading...</div>}>
-        <DiaryList
-          initialDiaries={diaries}
+        <GroupedDiaryList
+          diaries={diaries}
           initialSearch={search}
-          initialPage={page}
-          totalPages={totalPages}
           total={total}
         />
       </Suspense>

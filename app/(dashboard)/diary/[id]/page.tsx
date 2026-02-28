@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { getServerSession } from 'next-auth'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -5,6 +6,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { DeleteButton } from '@/components/diary/DeleteButton'
 import { PrintButton } from '@/components/diary/PrintButton'
+import { AutoPrint } from '@/components/diary/AutoPrint'
 
 interface DiaryPageProps {
   params: Promise<{ id: string }>
@@ -46,6 +48,9 @@ export default async function DiaryPage({ params }: DiaryPageProps) {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+      <Suspense fallback={null}>
+        <AutoPrint />
+      </Suspense>
       {/* Back Button */}
       <Link
         href="/dashboard"
