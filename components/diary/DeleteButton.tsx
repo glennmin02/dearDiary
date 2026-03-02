@@ -20,7 +20,6 @@ export function DeleteButton({ diaryId }: DeleteButtonProps) {
       })
       if (res.ok) {
         router.push('/dashboard')
-        router.refresh()
       }
     } catch (error) {
       console.error('Delete failed:', error)

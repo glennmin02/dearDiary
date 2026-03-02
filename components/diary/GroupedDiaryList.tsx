@@ -61,8 +61,8 @@ export function GroupedDiaryList({
 
     diaries.forEach((diary) => {
       const date = new Date(diary.entryDate)
-      const year = date.getFullYear()
-      const month = date.getMonth()
+      const year = date.getUTCFullYear()
+      const month = date.getUTCMonth()
 
       if (!groups.has(year)) {
         groups.set(year, new Map())

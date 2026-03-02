@@ -79,7 +79,7 @@ export async function POST(req: Request) {
       data: {
         title: validatedData.title,
         content: validatedData.content,
-        entryDate: new Date(validatedData.entryDate),
+        entryDate: new Date(validatedData.entryDate + 'T12:00:00'),
         userId: session.user.id,
       },
     })

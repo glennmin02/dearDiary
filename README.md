@@ -107,6 +107,25 @@ Set the `DATABASE_URL` environment variable in Vercel with your connection strin
 | `NEXTAUTH_URL` | Your app URL (auto-set by Vercel in production) |
 | `NEXTAUTH_SECRET` | Secret for JWT encryption (required) |
 
+## Date Handling
+
+Diary entry dates are stored and displayed in a timezone-agnostic manner:
+
+- **Storage**: Entry dates are stored with a noon timestamp (`T12:00:00`) to prevent date shifting across timezones
+- **Display**: Dates are rendered using UTC methods to ensure consistency regardless of the user's timezone
+- **Timestamps**: `createdAt` and `updatedAt` use server time and are displayed in the user's local timezone
+
+This ensures that if you select "January 15, 2025" as your entry date, it will always display as "January 15, 2025" regardless of where you view it from.
+
+## Performance Optimizations
+
+The application includes several performance optimizations:
+
+- **Optimistic UI updates**: Diary deletions are reflected immediately in the UI before server confirmation
+- **Efficient navigation**: Save/delete operations navigate without unnecessary page refreshes
+- **Database indexes**: Composite index on `[userId, entryDate]` for fast filtered and sorted queries
+- **Minimal re-renders**: Components only re-render when necessary
+
 ## Project Structure
 
 ```

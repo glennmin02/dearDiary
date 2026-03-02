@@ -63,7 +63,6 @@ export function DiaryForm({ diary }: DiaryFormProps) {
       }
 
       router.push(diary ? `/diary/${diary.id}` : '/dashboard')
-      router.refresh()
     } catch (error) {
       setErrors({ form: 'Something went wrong' })
       setLoading(false)

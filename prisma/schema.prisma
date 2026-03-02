@@ -27,4 +27,5 @@ model Diary {
 
   @@index([userId])
   @@index([entryDate])
+  @@index([userId, entryDate])
 }

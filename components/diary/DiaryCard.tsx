@@ -21,14 +21,13 @@ export function DiaryCard({ diary }: DiaryCardProps) {
   const router = useRouter()
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleted, setIsDeleted] = useState(false)
 
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
+    const d = new Date(date)
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    return `${days[d.getUTCDay()]}, ${months[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`
   }
 
   const truncateContent = (content: string, maxLength: number = 120) => {
@@ -38,19 +37,27 @@ export function DiaryCard({ diary }: DiaryCardProps) {
 
   const handleDelete = async () => {
     setDeleting(true)
+    setIsDeleted(true) // Optimistic update - hide card immediately
+    setShowDeleteConfirm(false)
     try {
       const res = await fetch(`/api/diaries/${diary.id}`, {
         method: 'DELETE',
       })
-      if (res.ok) {
-        router.refresh()
+      if (!res.ok) {
+        // Revert optimistic update on failure
+        setIsDeleted(false)
+        setDeleting(false)
       }
     } catch (error) {
       console.error('Delete failed:', error)
-    } finally {
+      setIsDeleted(false)
       setDeleting(false)
-      setShowDeleteConfirm(false)
     }
+  }
+
+  // Don't render if optimistically deleted
+  if (isDeleted) {
+    return null
   }
 
   return (
